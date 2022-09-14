@@ -64,7 +64,9 @@ class DETR(nn.Module):
         assert mask is not None
         hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
 
+        # classification_head:batch*n_query*(num_class+1)
         outputs_class = self.class_embed(hs)
+        # :batch*n_query*4(x,y,w,h)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]}
         if self.aux_loss:

@@ -48,6 +48,8 @@ class Transformer(nn.Module):
         '''
         query_embed:object query(C*h*W)
         pos_embed: position encoding(N(num_queries)*C)
+
+        返回 1*batch*num_queries*C, encoder的输出: batch_size*C*h*w
         '''
         # flatten NxCxHxW to HWxNxC
         # batch_size,channels,h,w
@@ -63,9 +65,12 @@ class Transformer(nn.Module):
 
         # tgt:num_queries*batch_size*C
         tgt = torch.zeros_like(query_embed)
+        # memory:hw*batch*c
         memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
+        # hs:1*num_queries*batch*C
         hs = self.decoder(tgt, memory, memory_key_padding_mask=mask,
                           pos=pos_embed, query_pos=query_embed)
+        # 返回 1*batch*num_queries*C, encoder的输出: batch_size*C*h*w
         return hs.transpose(1, 2), memory.permute(1, 2, 0).view(bs, c, h, w)
 
 
@@ -96,6 +101,9 @@ class TransformerEncoder(nn.Module):
 class TransformerDecoder(nn.Module):
 
     def __init__(self, decoder_layer, num_layers, norm=None, return_intermediate=False):
+        '''
+        return_intermediate:返回中间层结果
+        '''
         super().__init__()
         self.layers = _get_clones(decoder_layer, num_layers)
         self.num_layers = num_layers
@@ -109,6 +117,9 @@ class TransformerDecoder(nn.Module):
                 memory_key_padding_mask: Optional[Tensor] = None,
                 pos: Optional[Tensor] = None,
                 query_pos: Optional[Tensor] = None):
+        '''
+        output: 1*query_num*batch_size*C
+        '''
         output = tgt
 
         intermediate = []
