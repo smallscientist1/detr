@@ -69,7 +69,7 @@ class DETR(nn.Module):
         # :batch*n_query*4(x,y,w,h)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]}
-        if self.aux_loss:
+        if self.aux_loss: # auxiliary decoding losses in the transformer(即输出decoder的每一层,计算loss)
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord)
         return out
 
@@ -86,7 +86,9 @@ class SetCriterion(nn.Module):
     """ This class computes the loss for DETR.
     The process happens in two steps:
         1) we compute hungarian assignment between ground truth boxes and the outputs of the model
+        使用匈牙利算法计算最大匹配
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
+        计算loss
     """
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
         """ Create the criterion.
@@ -103,8 +105,10 @@ class SetCriterion(nn.Module):
         self.weight_dict = weight_dict
         self.eos_coef = eos_coef
         self.losses = losses
+        # empty_weight:记录每一类的权重,其中最后一项为背景
         empty_weight = torch.ones(self.num_classes + 1)
         empty_weight[-1] = self.eos_coef
+        # register a buffer to the module that should not to be considered a model parameter.
         self.register_buffer('empty_weight', empty_weight)
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
@@ -228,6 +232,7 @@ class SetCriterion(nn.Module):
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
+        # num_boxes:[sum],device与output相同？
         num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_boxes)

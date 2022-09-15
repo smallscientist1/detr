@@ -118,7 +118,7 @@ class TransformerDecoder(nn.Module):
                 pos: Optional[Tensor] = None,
                 query_pos: Optional[Tensor] = None):
         '''
-        output: 1*query_num*batch_size*C
+        output: 1*query_num*batch_size*C 或 num_layers*query_num*batch_size*C
         '''
         output = tgt
 
@@ -206,6 +206,24 @@ class TransformerEncoderLayer(nn.Module):
 
 
 class TransformerDecoderLayer(nn.Module):
+    '''
+    a little different from transformer
+
+                                    |-------->add&norm
+                                    |           |
+                                    |         FFN
+                                    -----------|
+                                            add&norm
+                                        multihead-attention
+                    encoder_output ________|____|     |
+        ________________________________________|     |
+        |                                         ____|________
+        |                                        |             | 
+        |                           |------>  add&norm         |
+        |                           |   multihead-atention     |   
+        |                           |--------|                 |
+    positional encoding                    object queries------|
+    '''
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
