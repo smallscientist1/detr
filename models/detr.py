@@ -58,15 +58,17 @@ class DETR(nn.Module):
         """
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
+        # features:
         features, pos = self.backbone(samples)
 
+        # features[-1] is a nested tensor, decompose() returns features.tensor, features.mask
         src, mask = features[-1].decompose()
         assert mask is not None
         hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
 
-        # classification_head:batch*n_query*(num_class+1)
+        # classification_head:decoder_layer_num*batch*n_query*(num_class+1)
         outputs_class = self.class_embed(hs)
-        # :batch*n_query*4(x,y,w,h)
+        # :decoder_layer_num*batch*n_query*4(x,y,w,h)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]}
         if self.aux_loss: # auxiliary decoding losses in the transformer(即输出decoder的每一层,计算loss)
