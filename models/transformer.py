@@ -47,7 +47,7 @@ class Transformer(nn.Module):
     def forward(self, src, mask, query_embed, pos_embed):
         '''
         query_embed:object query(N(num_queries)*C)
-        pos_embed: position encoding(N(num_queries)*C)
+        pos_embed: position encoding(batch*2C*H*W)
 
         返回 1*batch*num_queries*C, encoder的输出: batch_size*C*h*w
         '''
@@ -120,7 +120,7 @@ class TransformerDecoder(nn.Module):
         '''
         tgt: the output of the previous decoder layer
         memory: encoder memory(encoder output)
-        pos: positional encoding
+        pos: positional encoding(2C H W)
         query_pos: object query
 
         output: 1*query_num*batch_size*C 或 num_layers*query_num*batch_size*C

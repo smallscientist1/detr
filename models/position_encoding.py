@@ -26,24 +26,42 @@ class PositionEmbeddingSine(nn.Module):
         self.scale = scale
 
     def forward(self, tensor_list: NestedTensor):
+        '''
+        pos为位置,i为特征的第i维,d_model为特征维数,i=0,1,...,d_model//2
+        f(pos,2i) = sin(pos/10000^{2*i/d_model})
+        f(pos,2i+1) = cos(pos/10000^{2*i/d_model})
+
+        mask: batch_size*h*W
+        x: batch_size*3*h*W
+        self.temperature: 10000
+        '''
         x = tensor_list.tensors
         mask = tensor_list.mask
         assert mask is not None
         not_mask = ~mask
+        # x_embed:batch_size*h*W   如[[1,1,1,0,1]]->[[1,2,3,3,4]]
+        # y_embed:batch_size*h*W    如[[[1,1,0,1]]]->[[[1,2,2,3]]]
         y_embed = not_mask.cumsum(1, dtype=torch.float32)
         x_embed = not_mask.cumsum(2, dtype=torch.float32)
-        if self.normalize:
+        if self.normalize: # 将pos归一化
             eps = 1e-6
             y_embed = y_embed / (y_embed[:, -1:, :] + eps) * self.scale
             x_embed = x_embed / (x_embed[:, :, -1:] + eps) * self.scale
 
+        # dim_t = [0,1,...,d_model-1]
         dim_t = torch.arange(self.num_pos_feats, dtype=torch.float32, device=x.device)
+        # dim_t = 10000^(2*i/d_model)
         dim_t = self.temperature ** (2 * (dim_t // 2) / self.num_pos_feats)
 
+        # 对每个位置每个batch的每个维度作除法,pos 为每个有效位置的index
+        # pos_x: batch_size*H*W*(d_model)
+        # pos_y: batch_size*H*W*(d_model)
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
+        # pos_x & pos_y: batch_size*H*W*d_model
         pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        # pos: batch_size*(2*d_model)*H*W
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         return pos
 
